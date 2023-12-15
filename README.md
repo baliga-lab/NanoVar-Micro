@@ -28,11 +28,12 @@ It took about ~13 hours to make basecalling and alignment to merged Dvh and Mmp 
                 - basecalls
     - model
     - reference
+    - dorado
 
 # Install dorado
 Download provided binaries for the relevant platform from [dorado Github repository](https://github.com/nanoporetech/dorado).
 
-Unpack the dorado under the **code** directory
+Unpack the dorado under the **dorado** directory
 
 # Download the relevant dorado model
 Download the relevant model from dorado gihub repository. We have used dna_r10.4.1_e8.2_400bps_sup@v4.3.0 model for the latest high accuracy basecalling.
@@ -49,7 +50,7 @@ model file is placed under the **model** directory
     pod5 convert fast5 -r Run1/barcode07/*.fast5 Run2/barcode07/*.fast5 Run3/barcode07/*.fast5 Run4/barcode07/*.fast5 --output barcode07_combined.pod5
 
 # Run dorado
-    code/dorado-0.4.3-osx-arm64/bin/dorado basecaller model/dna_r10.4.1_e8.2_400bps_sup@v4.2.0 data/EPD9/barcode07/barcode07_combined.pod5 --reference reference/DvH_Mmp_merged_dna.genome.fasta > output/EPD9/barcode07/basecalls/barcode07.bam
+    dorado/dorado-0.4.3-osx-arm64/bin/dorado basecaller model/dna_r10.4.1_e8.2_400bps_sup@v4.2.0 data/EPD9/barcode07/barcode07_combined.pod5 --reference reference/DvH_Mmp_merged_dna.genome.fasta > output/EPD9/barcode07/basecalls/barcode07.bam
 
 # Running trio_variant_calling pipeline
 Trio Variant Calling Pipeline uses BAM input file from dorado and calls variant by using samtools, gatk and varscan. Annotations are performed with snpEFF and variants are collated.
