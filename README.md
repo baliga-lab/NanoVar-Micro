@@ -17,15 +17,20 @@ It took about ~13 hours to make basecalling and alignment to merged Dvh and Mmp 
                 - Run1, Run2, Run3, Run5
     - output
         - EPD9
-            - dvh
-                - barcode07
-                    - alignment_results
-                    - samtools_results
-                    - gatk_results
-                    - varscan_results
-                    - combined_output
+            - barcode07
+                - alignment_results
+                - samtools_results
+                - gatk_results
+                - varscan_results
+                - combined_output
+                    - dvh
+                    - mmp
+                - snpeff_results
+                    - dvh
+                    - mmp
             - barcode07
                 - basecalls
+            
     - model
     - reference
     - dorado
