@@ -46,7 +46,7 @@ model file is placed under the **model** directory
     pip install pod5
 
 
-# Convert .fats5 files from all the runs into one final .pod5 file
+# Convert .fast5 files from all the runs into one final .pod5 file
     pod5 convert fast5 -r Run1/barcode07/*.fast5 Run2/barcode07/*.fast5 Run3/barcode07/*.fast5 Run4/barcode07/*.fast5 --output barcode07_combined.pod5
 
 # Run dorado

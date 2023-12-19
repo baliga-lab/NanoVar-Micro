@@ -3,6 +3,7 @@ import glob
 import sys
 import os
 import re
+from itertools import zip_longest
 
 ############# Functions ##############
 def get_data():
@@ -14,8 +15,8 @@ def get_data():
     return data_folders
 
 
-def create_dirs(samtools_results,gatk_results,varscan_results,alignment_results,combined_variants):
-    dirs = [samtools_results,gatk_results,varscan_results,alignment_results,combined_variants]
+def create_dirs(snpeff_results,samtools_results,gatk_results,varscan_results,alignment_results,combined_variants):
+    dirs = [snpeff_results,samtools_results,gatk_results,varscan_results,alignment_results,combined_variants]
     for dir in dirs:
         # create results folder
         print(dir)
@@ -100,38 +101,41 @@ def samtools_variants(alignment_results,bam_file,samtools_results,sample_id): # 
     print
     
     #files_2_delete.append('%s_sorted.bam, %s_sorted.bam.bai, %s_fixmate.bam'%(base_file_name,base_file_name,base_file_name))
-    return samtools_files_path,sorted_bam
+    return samtools_files_path
 
 
 ####################### Varscan Variant Calling ###############################
-def varscan_variants(sorted_bam,varscan_results,sample_id,files_2_delete): # with varscan
+def varscan_variants(alignment_results,varscan_results,sample_id,files_2_delete): # with varscan
     print
     print( "\033[34m Running Varscan.. \033[0m")
     
     # create varscan results specific results directory
     varscan_files_path = '%s/%s'%(varscan_results,sample_id)
 
+    # create file names
+    sorted_bam = os.path.join(alignment_results,sample_id + '_sorted.bam')
+
     # varscan mpileup
     cmd1 = 'samtools mpileup --input-fmt-option nthreads=8 -B -f %s -o %s.pileup %s' %(genome_fasta, varscan_files_path, sorted_bam)
     
     # varscan for snps
-    cmd2 = '%s -Xmx128m -jar %s mpileup2snp %s.pileup --output-vcf 1 --min-coverage 8 --min-reads2 2 --min-avg-qual 30 --strand-filter 0 > %s_varscan_snps_final.vcf' %(javaPath, varscanPath, varscan_files_path, varscan_files_path)
+    cmd2 = '%s -Xmx128m -jar %s mpileup2snp %s.pileup --output-vcf 1 --min-coverage 75 --min-reads2 5 --min-avg-qual 20 --strand-filter 0 > %s_varscan_snps_final.vcf' %(javaPath, varscanPath, varscan_files_path, varscan_files_path)
     
     # varscan for indels
-    cmd3 = '%s -Xmx128m -jar %s mpileup2indel %s.pileup --output-vcf 1 --min-coverage 8 --min-reads2 2 --min-avg-qual 30 --strand-filter 0 > %s_varscan_inds_final.vcf' %(javaPath, varscanPath, varscan_files_path, varscan_files_path)
+    cmd3 = '%s -Xmx128m -jar %s mpileup2indel %s.pileup --output-vcf 1 --min-coverage 75 --min-reads2 5 --min-avg-qual 20 --strand-filter 0 > %s_varscan_inds_final.vcf' %(javaPath, varscanPath, varscan_files_path, varscan_files_path)
     
     print("\n")
     print( "++++++ samtools Mpileup: \n", cmd1)
     print
-    #os.system(cmd1)
+    os.system(cmd1)
     print("\n")
     print( "++++++ Varscan for SNPs: \n", cmd2)
     print
-    #os.system(cmd2)
+    os.system(cmd2)
     print("\n")
     print
     print( "++++++ Varscan for INDELS: \n", cmd3)
-    #os.system(cmd3)
+    os.system(cmd3)
 
     files_2_delete.append('%s.pileup' %(varscan_files_path))
 
@@ -140,12 +144,15 @@ def varscan_variants(sorted_bam,varscan_results,sample_id,files_2_delete): # wit
 
 
 ####################### GATK Variant Calling ###############################
-def gatk_variants(sorted_bam,gatk_results,sample_id): #with GATK HaploTypeCaller
+def gatk_variants(alignment_results,gatk_results,sample_id): #with GATK HaploTypeCaller
     print
     print( "\033[34m Running GATK Haplotype Variant Caller.. \033[0m")
     
     # create varscan results specific results directory
     gatk_files_path = '%s/%s'%(gatk_results,sample_id)
+
+    # create file names
+    sorted_bam = os.path.join(alignment_results,sample_id + '_sorted.bam')
 
     # haplotype command
     cmd1 = '%s -Xmx4G -jar %s -T HaplotypeCaller -R %s -I %s --genotyping_mode DISCOVERY -ploidy 1 -stand_emit_conf 30 -stand_call_conf 30 -o %s_gatk_raw.vcf' %(javaPath, gatkPath, genome_fasta, sorted_bam, gatk_files_path)
@@ -168,35 +175,48 @@ def gatk_variants(sorted_bam,gatk_results,sample_id): #with GATK HaploTypeCaller
     print("\n")
     print( "++++++ GATK HaplotypeCaller Comnand: \n", cmd1)
     print
-    os.system(cmd1)
+    #os.system(cmd1)
     print("\n")
     print( "++++++ Select SNP Variants: \n", cmd2)
     print
-    os.system(cmd2)
+    #os.system(cmd2)
     print("\n")
     print( "++++++ Applying filters for SNPs: \n", cmd3)
     print
-    os.system(cmd3)
+    #os.system(cmd3)
     print("\n")
     print( "++++++ Select IndelVariants: \n", cmd4)
     print
-    os.system(cmd4)
+    #os.system(cmd4)
     print("\n")
     print( "++++++ Applying filters for Indelss: \n", cmd5)
     print
-    os.system(cmd5)
+    #os.system(cmd5)
     print("\n")
     print( "++++++ Merging vcf files: \n", cmd6)
     print
-    os.system(cmd6)
+    #os.system(cmd6)
 
     return gatk_files_path
 
-
+def replace_directory_in_path(file_path, old_directory, new_directory, organism):
+    directory, filename = os.path.split(file_path)
+    new_path = os.path.join(directory.replace(old_directory, f"{new_directory}/{organism}"), filename)
+    return new_path
+    
 ####################### Run SNPEff annotations ###############################
-def run_snpeff(samtools_files_path,varscan_files_path,gatk_files_path,combined_variants,sample_id):
-    print
+def run_snpeff(snpeff_results,samtools_results,varscan_results,gatk_results,combined_variants,sample_id):
+    print('\n')
     print( "\033[34m Running SNPEff Annotations.. \033[0m")
+
+    # create samtools results specific results directory
+    samtools_files_path = '%s/%s'%(samtools_results,sample_id)
+
+    # create varscan results specific results directory
+    varscan_files_path = '%s/%s'%(varscan_results,sample_id)
+
+    # create varscan results specific results directory
+    gatk_files_path = '%s/%s'%(gatk_results,sample_id)
 
     # Get list of VCF files from all callers
     vcf_files = ['%s_samtools_final.vcf.gz'%(samtools_files_path), '%s_varscan_inds_final.vcf'%(varscan_files_path), '%s_varscan_snps_final.vcf'%(varscan_files_path), '%s_gatk_final.vcf'%(gatk_files_path)]
@@ -221,11 +241,46 @@ def run_snpeff(samtools_files_path,varscan_files_path,gatk_files_path,combined_v
             # creat file names for output
             snpeff_vcf = re.split('final.', vcf_file)[0] + 'snpeff.' + re.split('final.', vcf_file)[1]
             snpeff_filtered_vcf = re.split('final.', vcf_file)[0] + 'snpeff_filtered.' + re.split('final.', vcf_file)[1]
-
+        
+        # Build names for output files 
+        caller_name = re.split('final.', vcf_file)[0].split('/')[-1].split('_')[1]
+        variant_type = re.split('final.', vcf_file)[0].split('/')[-1].split('_')[2]
         snpeff_stats = re.split('final.', vcf_file)[0] + 'snpeff_stats.txt'
         snpeff_final = re.split('final.', vcf_file)[0] + 'snpeff_final.txt'
+        #snpeff_vcf = os.path.join(snpeff_results, sample_id + '_' + caller_name + variant_type + '_snpeff.vcf')
+        #snpeff_filtered_vcf = os.path.join(snpeff_results, sample_id + '_' + caller_name  + variant_type +'_snpeff_filtered.vcf')
+        #snpeff_stats = os.path.join(snpeff_results,sample_id + '_' + caller_name + variant_type + '_snpeff_stats.txt')
+        #snpeff_final= os.path.join(snpeff_results,sample_id + '_' + caller_name + variant_type + '_snpeff_final.txt')
         
+        
+        # Change the final destination for snpEFF analyzed files
+        if caller_name == "samtools":
+            snpeff_vcf = replace_directory_in_path(snpeff_vcf, "samtools_results", "snpeff_results", organism)
+            snpeff_filtered_vcf = replace_directory_in_path(snpeff_filtered_vcf, "samtools_results", "snpeff_results", organism)
+            snpeff_stats = replace_directory_in_path(snpeff_stats, "samtools_results", "snpeff_results", organism)
+            snpeff_final = replace_directory_in_path(snpeff_final, "samtools_results", "snpeff_results", organism)
 
+        if caller_name == "gatk":
+            snpeff_vcf = replace_directory_in_path(snpeff_vcf, "gatk_results", "snpeff_results", organism)    
+            snpeff_filtered_vcf = replace_directory_in_path(snpeff_filtered_vcf, "gatk_results", "snpeff_results", organism)
+            snpeff_stats = replace_directory_in_path(snpeff_stats, "gatk_results", "snpeff_results", organism)
+            snpeff_final = replace_directory_in_path(snpeff_final, "gatk_results", "snpeff_results", organism)
+
+        if caller_name == "varscan":
+            snpeff_vcf = replace_directory_in_path(snpeff_vcf, "varscan_results", "snpeff_results", organism)
+            snpeff_filtered_vcf = replace_directory_in_path(snpeff_filtered_vcf, "varscan_results", "snpeff_results", organism)
+            snpeff_stats = replace_directory_in_path(snpeff_stats, "varscan_results", "snpeff_results", organism)
+            snpeff_final = replace_directory_in_path(snpeff_final, "varscan_results", "snpeff_results", organism)
+
+        print(
+            f"{'caller_name:':<20}{caller_name:<10}",
+            f"\n{'variant type:':<20}{variant_type:<10}",
+            f"\n{'snpeff_vcf:':<20}{snpeff_vcf:<10}",
+            f"\n{'snpeff_filtered_vcf:':<15}{snpeff_filtered_vcf:<10}",
+            f"\n{'snpeff_stats:':<20}{snpeff_stats:<10}", 
+            f"\n{'snpeff_final:':<20}{snpeff_final:<10}",    
+            )
+        
         # snpeff formateff commands
         cmd1 ='%s -Xmx2g -jar %ssnpEff.jar -ud 0 -classic -csvStats %s -geneId -lof -v -formatEff -o gatk %s %s > %s'  %(javaPath, snpeff_path, snpeff_stats, snpeff_db, vcf_file, snpeff_vcf)
         
@@ -233,23 +288,23 @@ def run_snpeff(samtools_files_path,varscan_files_path,gatk_files_path,combined_v
         cmd2 = 'cat %s | %s -Xmx128m -jar %sSnpSift.jar filter "(FILTER = \'PASS\') & (EFF[*].CODING != \'NON_CODING\')" > %s' %(snpeff_vcf, javaPath, snpeff_path, snpeff_filtered_vcf)
        
         # create final one line variant file
-        cmd3 ='cat %s | perl %sscripts/vcfEffOnePerLine.pl | %s -Xmx128m -jar %sSnpSift.jar extractFields - CHROM POS REF ALT AF AC DP MQ "(FILTER = \'PASS\')" "EFF[*].EFFECT" "EFF[*].IMPACT" "EFF[*].FUNCLASS" "EFF[*].CODON" "EFF[*].AA" "EFF[*].AA_LEN" "EFF[*].GENE" "EFF[*].CODING" "EFF[*].RANK" "EFF[*].DISTANCE"> %s'%(snpeff_filtered_vcf, snpeff_path, javaPath, snpeff_path, snpeff_final)
+        cmd3 ='cat %s | perl %sscripts/vcfEffOnePerLine.pl | %s -Xmx128m -jar %sSnpSift.jar extractFields - CHROM POS REF ALT AF AC DP MQ "(FILTER = \'PASS\')" "EFF[*].EFFECT" "EFF[*].IMPACT" "EFF[*].FUNCLASS" "EFF[*].CODON" "EFF[*].AA" "EFF[*].AA_LEN" "EFF[*].GENE" "EFF[*].CODING" "EFF[*].RANK" "EFF[*].DISTANCE" > %s' %(snpeff_filtered_vcf, snpeff_path, javaPath, snpeff_path, snpeff_final)
 
         print("\n")
         print( "++++++ Running SNPEff Formateff command: \n", cmd1)
-        print
         os.system(cmd1)
+        
         print("\n")
         print( "++++++ Running SNPEff Filtering: \n", cmd2)
-        print
         os.system(cmd2)
+        
         print("\n")
         print( "++++++ Running SNPEff Oneline final formatter: \n", cmd3)
-        print
         os.system(cmd3)
 
         # Run function to combine vcf files into a single file from 3 callers
         combine_variants(snpeff_filtered_vcf,snpeff_final,combined_variants)
+
     run_snpeff.t.close()
 
 ####################### Combine variants from snpeff outputs ###############################
@@ -269,10 +324,12 @@ def combine_variants(snpeff_filtered_vcf, snpeff_final, combined_variants):
     """
     snpeff_filtered_vcf: input VCF file
     """
+    print('\n')
     print( "\033[34m Running Combine variants.. \033[0m")
 
-    vcf_file_program = snpeff_filtered_vcf.split('/')[-2]
+    vcf_file_program = snpeff_filtered_vcf.split('/')[-1].split("_")[1]
     print('snpeff_filtered_vcf:%s' %snpeff_filtered_vcf)
+    print(f'vcf_file_program {vcf_file_program}')
 
     ## open vcf file for processing and skip comment lines
     if is_file_empty(snpeff_filtered_vcf):
@@ -280,119 +337,131 @@ def combine_variants(snpeff_filtered_vcf, snpeff_final, combined_variants):
         return
 
     with vcfopen(snpeff_filtered_vcf) as infile:
-        # skip all the comments
-        prev_line = ''
-        for line in infile:
-            if not line.startswith("#"):
-                break
-            prev_line = line
-        if not prev_line.startswith('#CHROM'):
-            print("No chromosome information !!!, exiting combine_variants()")
-            return
-
+        # Initialize variables to hold header and data
+        header_line = None
+        data_lines = []
         frequencies = []
+        
+        # Read all lines
         for line in infile:
-            vector = line.split("\t")
+            if line.startswith("#CHROM"):
+                # Header line found
+                header_line = line.strip().split("\t")
+                #print(header_line)
+            elif header_line is not None:
+                # Only process data lines after the #CHROM line
+                vector = line.strip().split("\t")
+                #ave the header and data lines for further processing
+                data_lines.append(line)
 
-            ## if vcf file is varscan file
-            if vcf_file_program == "varscan_results":
-                ## collect vcf field for frequency
-                freq = vector[9].split(':')[6]
+        if header_line is not None:
+            # Process the header line if needed
+            pass
 
-                #print('++++++++Freq: %s+++++++++' %(freq))
-                chm = line.split('\t')[0]
-                my_fields = vector[7].split(';')
-                #adp = myFields.split("ADP=")[1]
-                ## append freq to list of freq
-                frequencies.append(freq)
+        if data_lines:
+            # Process the data lines if needed      
+            for line in data_lines:
+                vector = line.strip().split("\t")
+                #print(vector)
 
-                ## if vcf file is samtools file
-            elif vcf_file_program == "samtools_results":
-                #collect list of all fields from vcf file
-                my_fields = vector[7].split(';')
-                #print(my_fields)
-                # grab DP4 field
-                dp4 = next(filter(lambda x:'DP4' in x, my_fields))
-                #print dp4
-                dp4_fields = dp4.split("DP4=")[1]
-                fr = float(dp4_fields.split(",")[0])
-                rr = float(dp4_fields.split(",")[1])
-                fa = float(dp4_fields.split(",")[2])
-                ra = float(dp4_fields.split(",")[3])
-                freq = (fa + ra) / (fr + rr + fa + ra)
-                freq = round(freq * 100, 2)
-                freq = str(freq) + "%"
+                ## if vcf file is varscan file
+                if vcf_file_program == "varscan":
+                    ## collect vcf field for frequency
+                    freq = vector[9].split(':')[6]
+                    #chm = line.split('\t')[0]
+                    my_fields = vector[7].split(';')
+                    #adp = myFields.split("ADP=")[1]
+                    ## append freq to list of freq
+                    frequencies.append(freq)
+                    #print(f'Varscan Freq:       {freq}')
 
-                frequencies.append(freq)
-
-                ## if vcf file is gatk file
-            elif vcf_file_program == "gatk_results":
-                ## collect vcf field
-                my_fields = vector[7].split(':')
-                #print myFields
-                if my_fields[0] != ".":
-                    ad = float(my_fields[1].split(',')[1])
-                    dp = float(my_fields[2])
-                    freq = ad / dp
+                    ## if vcf file is samtools file
+                elif vcf_file_program == "samtools":
+                    #collect list of all fields from vcf file
+                    my_fields = vector[7].split(';')
+                    #print(my_fields)
+                    # grab DP4 field
+                    dp4 = next(filter(lambda x:'DP4' in x, my_fields))
+                    #print(f'DP4 Field: {dp4}')
+                    dp4_fields = dp4.split("DP4=")[1]
+                    fr = float(dp4_fields.split(",")[0])
+                    rr = float(dp4_fields.split(",")[1])
+                    fa = float(dp4_fields.split(",")[2])
+                    ra = float(dp4_fields.split(",")[3])
+                    freq = (fa + ra) / (fr + rr + fa + ra)
                     freq = round(freq * 100, 2)
                     freq = str(freq) + "%"
-                ## append freq to list of freq
+
                     frequencies.append(freq)
+                    #print(f'Samtools Freq:       {freq}')
+
+                    ## if vcf file is gatk file
+                elif vcf_file_program == "gatk":
+                    ## collect vcf field
+                    my_fields = vector[10].split(':')
+                    if my_fields[0] != ".":
+                        ad = float(my_fields[1].split(',')[1])
+                        dp = float(my_fields[2])
+                        freq = ad / dp
+                        freq = round(freq * 100, 2)
+                        freq = str(freq) + "%"
+                    ## append freq to list of freq
+                        frequencies.append(freq)
+                        #print(f'GATK Freq:       {freq}')
+                    else:
+                        print("I didnt correctly find the caller name")
+                        frequencies.append('')
                 else:
                     frequencies.append('')
-            else:
-                frequencies.append('')
+                    print("I didnt correctly find the caller name")
 
         print( 'Length of Frequencies= '+ str(len(frequencies)))
-
+      
         # filename for the output from converting vcf to oneliner with frequency and program added
         outfile_w_freq = combined_variants + '/' + snpeff_filtered_vcf.split('/')[-1].split('_snpeff_filtered')[0] + '_outfile_w_freq.txt'
 
         with open(outfile_w_freq, 'w') as outfile, open(snpeff_final, 'r') as final_in:
-            print(snpeff_final)
+            #print(snpeff_final)
             final_in.readline()  # skip header
-
             myList = []
             index = 0
-            for line in final_in:
-                
+            #i = 0
+            for line, frequency in zip_longest(final_in, frequencies, fillvalue="N/A"):
+                #print(index, line)
                 # change alternative chromosome names
                 chromosome = line.split('\t')[0]
                 if chromosome == "NC_002937":
-                    print( "Found alternative chromosome name: %s" %chromosome)
+                    print("Found alternative chromosome name: %s" % chromosome)
                     chm = "Chromosome"
                 elif chromosome == "NC_005863":
-                    print( "Found alternative chromosome name: %s" %chromosome)
+                    print("Found alternative chromosome name: %s" % chromosome)
                     chm = "pDV"
                 else:
-                    chm = line.split('\t')[0]
-                
+                    chm = chromosome
+
                 # collect fields
-                if index < len(frequencies):
-                    print(f'index: {frequencies[index]}')
-                    pos = line.split('\t')[1]
-                    refs = list(line.split('\t')[2])[0] # grab only first character in reference sequence
-                    ref = line.split('\t')[2]
-                    alt = line.split('\t')[3]
-                    eff = line.split('\t')[9]
-                    imp = line.split('\t')[10]
-                    fnc = line.split('\t')[11]
-                    cdn = line.split('\t')[12]
-                    aac = line.split('\t')[13]
-                    loc = line.split('\t')[15]
-                    cod = line.split('\t')[16]
-                    dep = line.split('\t')[6]
-                    fre = frequencies[index]
-                    pro = vcf_file_program.split('_')[0]
+                pos = line.split('\t')[1]
+                refs = list(line.split('\t')[2])[0]  # grab only first character in reference sequence
+                ref = line.split('\t')[2]
+                alt = line.split('\t')[3]
+                eff = line.split('\t')[9]
+                imp = line.split('\t')[10]
+                fnc = line.split('\t')[11]
+                cdn = line.split('\t')[12]
+                aac = line.split('\t')[13]
+                loc = line.split('\t')[15]
+                cod = line.split('\t')[16]
+                dep = line.split('\t')[6]
+                fre = frequency
+                pro = vcf_file_program.split('_')[0]
 
-                    lineToWrite = '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' %(chm,pos,refs,ref,alt,eff,imp,fnc,cdn,aac,loc,cod,fre,pro,dep)
-                    outfile.write(lineToWrite)
-
-                    myList.append(lineToWrite)
-                    index += 1
-                else:
-                    print("Index is out of range.")
-
+                lineToWrite = '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (
+                    chm, pos, refs, ref, alt, eff, imp, fnc, cdn, aac, loc, cod, fre, pro, dep)
+                outfile.write(lineToWrite)
+                #i +=1
+                myList.append(lineToWrite)
+                index += 1
+            
     # write into final output file
     for element in myList:
         run_snpeff.t.write('%s' %element)
@@ -422,6 +491,7 @@ def salomon(aggregatedList):
 
         for variants in aggregatedList:
             for variant in variants:
+                #print(variant)
                 if uniqueLocation == variant[:3]:
                     body=variant[:-2]
                     callers.append(variant[-2])
@@ -485,6 +555,7 @@ def salomon(aggregatedList):
 
 ####################### Variant Retriever ###############################
 def variantRetriever(combined_output_file):
+    print('\n')
     print(f'combined_output_file: {combined_output_file}')
 
     # this function retrieves the variants for each caller
@@ -513,17 +584,18 @@ def variantRetriever(combined_output_file):
 
 ####################### Collate variants ###############################
 def collate_variants(combined_output_file,merged_variants_file):
-    print
+    print('\n')
     print( "\033[34m Running Collate variants.. \033[0m")
 
     # 2. recovering list of variants
     varscan_list,gatk_list,samtools_list = variantRetriever(combined_output_file)
-    print( 'detected variants',len(varscan_list),len(gatk_list),len(samtools_list))
+    #print( 'Detected variants',len(varscan_list),len(gatk_list),len(samtools_list))
+    print(f'Detected variants: Varscan: {len(varscan_list)}, GATK: {len(gatk_list)}, SAMTools: {len(samtools_list)}')
 
     # 3. finding consensus list of variants
-    print( 'merging...')
+    print( '')
     consensus_list = salomon([varscan_list,gatk_list,samtools_list])
-    print( 'final set',len(consensus_list))
+    print( 'Final set',len(consensus_list))
 
     # 4. writing a consensus list
     print( 'writing file...')
@@ -531,9 +603,10 @@ def collate_variants(combined_output_file,merged_variants_file):
 
     g = open(merged_variants_file, 'w')
     for element in consensus_list:
-        line2write='\t'.join(element)
-        line2write=line2write+'\n'
-        g.write(line2write)
+        # Check if the first field is equal to "BX950229"
+        if element[0] in chromosomes:
+            line2write = '\t'.join(element) + '\n'
+            g.write(line2write)
     g.close()
     #return collate_variants.combined_output_file
 
@@ -549,12 +622,14 @@ def delete_temp_files(files_2_delete):
 
 
 ####################### Running the Pipeline ###############################
-def run_pipeline(organism,project_dir,experiment_name,sample_id):
+def run_pipeline(organism, project_dir, experiment_name, sample_id, run_samtools_fixmate=False,run_samtools=False, run_varscan=False, run_GATK=False):
     files_2_delete = []
     
     # Find the bam file
-    results_dir = os.path.join(project_dir,"output",experiment_name,organism,sample_id)
-    basecalls_dir = os.path.join(project_dir,"output",experiment_name,"basecalls",sample_id)
+    results_dir = os.path.join(project_dir,"output",experiment_name,sample_id)
+    #results_dir = os.path.join(project_dir,"output",experiment_name,organism,sample_id)
+
+    basecalls_dir = os.path.join(project_dir,"output",experiment_name,sample_id,"basecalls")
     path = os.path.join(basecalls_dir,"**/*.bam")
     bam_file = glob.glob(path, recursive=True)[0]
     
@@ -563,7 +638,9 @@ def run_pipeline(organism,project_dir,experiment_name,sample_id):
     gatk_results = os.path.join(results_dir, 'gatk_results')
     varscan_results = os.path.join(results_dir, 'varscan_results')
     alignment_results = os.path.join(results_dir, 'alignment_results')
-    combined_variants = os.path.join(results_dir, 'combined_variants')
+    snpeff_results = os.path.join(results_dir, 'snpeff_results',organism)
+    combined_variants = os.path.join(results_dir, 'combined_variants',organism)
+    
 
     # Creating final results files
     combined_output_file = os.path.join(combined_variants, f'{sample_id}_combined_variants.txt')
@@ -572,37 +649,43 @@ def run_pipeline(organism,project_dir,experiment_name,sample_id):
     base_file_name = os.path.join(alignment_results,sample_id)
 
     # Print paths for verification
-    print(f'Organism: {organism}')
-    print(f'sample_name: {sample_id}')
-    print(f'experiment_name: {experiment_name}')
-    print(f'results_dir: {results_dir}')
-    print(f'BAM File: {bam_file}')
-    print(f'samtools_results: {samtools_results}')
-    print(f'gatk_results: {gatk_results}')
-    print(f'varscan_results: {varscan_results}')
-    print(f'alignment_results: {alignment_results}')
-    print(f'combined_variants: {combined_variants}')
-    print(f'combined_output_file: {combined_output_file}')
-    print(f'merged_variants_file: {merged_variants_file}')
-
+    print(
+        f"{'Organism:':<20}{organism:<10}",
+        f"\n{'sample_name:':<20}{sample_id:<10}",
+        f"\n{'experiment_name:':<20}{experiment_name:<10}",
+        f"\n{'results_dir:':<20}{results_dir:<10}",
+        f"\n{'BAM File:':<20}{bam_file:<10}",
+        f"\n{'samtools_results:':<20}{samtools_results:<10}",
+        f"\n{'gatk_results:':<20}{gatk_results:<10}",
+        f"\n{'varscan_results:':<20}{varscan_results:<10}",
+        f"\n{'alignment_results:':<20}{alignment_results:<10}",
+        f"\n{'combined_output_file:':<20}{combined_output_file:<10}",
+        f"\n{'combined_variants:':<20}{combined_variants:<10}",
+        f"\n{'merged_variants_file:':<20}{merged_variants_file:<10}",
+        f"\n{'snpeff_results:':<20}{snpeff_results:<10}"
+        )
     
     # 01. Get directories
-    #create_dirs(samtools_results,gatk_results,varscan_results,alignment_results,combined_variants)
+    create_dirs(snpeff_results,samtools_results,gatk_results,varscan_results,alignment_results,combined_variants)
     
     # 02. Run samtools fixmate
-    #run_samtools_fixmate(alignment_results,bam_file,sample_id,files_2_delete)
-    
+    if run_samtools_fixmate == True:
+        run_samtools_fixmate(alignment_results,bam_file,sample_id,files_2_delete)
+     
     # 03. Run Samtools variant calling
-    samtools_files_path,sorted_bam = samtools_variants(alignment_results,bam_file,samtools_results,sample_id)
+    if run_samtools == True:
+        samtools_files_path = samtools_variants(alignment_results,bam_file,samtools_results,sample_id)
     
     # 04. Run varscan variant calling
-    varscan_files_path = varscan_variants(sorted_bam,varscan_results,sample_id,files_2_delete)
+    if run_varscan == True:
+        varscan_files_path = varscan_variants(alignment_results,varscan_results,sample_id,files_2_delete)
     
     # 05. Run GATK variant Calling
-    gatk_files_path = gatk_variants(sorted_bam,gatk_results,sample_id)
+    if run_GATK == True:
+        gatk_files_path = gatk_variants(alignment_results,gatk_results,sample_id)
     
     # 06. Run SNPEff annotations
-    vcf_file = run_snpeff(samtools_files_path,varscan_files_path,gatk_files_path,combined_variants,sample_id)
+    vcf_file = run_snpeff(snpeff_results,samtools_results,varscan_results,gatk_results,combined_variants,sample_id)
     
     # 07. Collate variants into single file from 3 callers and unify them
     collate_variants(combined_output_file,merged_variants_file)
@@ -618,7 +701,8 @@ varscanPath = "/users/sturkars/VarScan.v2.3.9.jar"
 snpeff_path = "/users/sturkars/snpEffv43/snpEff/"
 
 ############# Globals ##############
-organism = "dvh"
+organism = "mmp"
+chromosomes = ["BX950229"]#["Chromosome","pDV"]
 experiment_name = "EPD9"
 sample_id = 'barcode07'
 
@@ -640,4 +724,4 @@ if organism == "dvh":
     #genome_fasta = os.path.join(genome_dir,'Desulfovibrio_vulgaris_str_hildenborough.GCA_000195755.1.30.dna.genome.fasta')
 
 
-run_pipeline(organism, project_dir, experiment_name, sample_id)
+run_pipeline(organism, project_dir, experiment_name, sample_id, run_samtools_fixmate=False,run_samtools=False, run_varscan=True, run_GATK=False)
