@@ -1,7 +1,7 @@
 # NanoVar-Micro
  Nanopore Microbial Variant Calling Pipeline
 
-This pipeline runs dorado for high accuracy basecalling and alignment to reference genomes creating a BAM file that can be used as an input the bwa_pipeline_nanopore. This pipeline makes variant calls by using samtools/bcftools, varscan and gatk. It annotates the variants by using snpEff/snpSift and combines/collates variants that can be filtered based on the number of callers. 
+This pipeline runs **dorado** for high accuracy basecalling and alignment to reference genomes creating a BAM file that can be used as an input the bwa_pipeline_nanopore. This pipeline makes variant calls by using samtools/bcftools, varscan and gatk. It annotates the variants by using snpEff/snpSift and combines/collates variants that can be filtered based on the number of callers. 
 
 # Setup of the environment
 Basecalling with **dorado** requires GPU. Basecalling/alignment steps were performed in Macboo Pro (M1),3.2 Ghz, 10 CPU/16 GPU, 32GB Memory.
